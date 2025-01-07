@@ -1,42 +1,45 @@
-import { headers } from 'next/headers'
-import { NextResponse } from 'next/server'
-import Stripe from 'stripe'
-import { supabase } from '@/lib/supabase'
+import { headers } from 'next/headers';
+import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
-  const body = await req.text()
-  const signature = headers().get('stripe-signature')!
+	const body = await req.text();
+	const signature = headers().get('stripe-signature')!;
 
-  let event: Stripe.Event
+	let event: Stripe.Event;
 
-  try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
-  } catch (err: any) {
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 })
-  }
+	try {
+		event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+	} catch (err: any) {
+		return NextResponse.json(
+			{ error: `Webhook Error: ${err.message}` },
+			{ status: 400 }
+		);
+	}
 
-  switch (event.type) {
-    case 'payment_intent.succeeded':
-      const paymentIntent = event.data.object as Stripe.PaymentIntent
-      
-      // Update booking and payment status
-      await supabase
-        .from('payments')
-        .update({ status: 'completed' })
-        .eq('stripe_payment_id', paymentIntent.id)
+	switch (event.type) {
+		case 'payment_intent.succeeded':
+			const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
-      await supabase
-        .from('bookings')
-        .update({ status: 'confirmed' })
-        .eq('id', paymentIntent.metadata.booking_id)
+			// Update booking and payment status
+			// Remove Supabase update logic
+			// await supabase
+			//   .from('payments')
+			//   .update({ status: 'completed' })
+			//   .eq('stripe_payment_id', paymentIntent.id)
 
-      break
-    default:
-      console.log(`Unhandled event type ${event.type}`)
-  }
+			// await supabase
+			//   .from('bookings')
+			//   .update({ status: 'confirmed' })
+			//   .eq('id', paymentIntent.metadata.booking_id)
 
-  return NextResponse.json({ received: true })
+			break;
+		default:
+			console.log(`Unhandled event type ${event.type}`);
+	}
+
+	return NextResponse.json({ received: true });
 }
